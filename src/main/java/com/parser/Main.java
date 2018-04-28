@@ -24,6 +24,6 @@ public class Main {
         parser.createAndWriteVendors();
         parser.createSapProductImpexes(parser.sapProducts.get(0));
 
-        System.out.println("Hello");
+        System.out.println("Hello Artem");
     }
 }
