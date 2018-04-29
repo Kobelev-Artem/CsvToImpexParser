@@ -17,13 +17,20 @@ public class Parser {
     public Map<String, String> vendorNameToCode = new HashMap<>();
     public Map<String, String> categoryNameToCode = new HashMap<>();
 
-    public void createAndWriteVendors(){
-        String header = "INSERT_UPDATE Vendor;code[unique=true,forceWrite=true,allownull=true];name[lang=en];description[lang=en]\n";
-        String vendorTemplate = ";{code};{name};{name}\n";
+    public void prepareData(){
+        createVendors();
+        createCategories();
+    }
 
+    public void createVendors(){
         for (ReferenceProduct product: referenceProducts.values()){
             vendorNameToCode.put(product.getDeveloper(), ParserUtils.trimString(product.getDeveloper()));
         }
+    }
+
+    public void writeVendors(){
+        String header = "INSERT_UPDATE Vendor;code[unique=true,forceWrite=true,allownull=true];name[lang=en];description[lang=en]\n";
+        String vendorTemplate = ";{code};{name};{name}\n";
 
         String vendorBody = "";
         for (String vendor : vendorNameToCode.keySet()){
@@ -36,14 +43,16 @@ public class Parser {
         ParserUtils.writeToFile(venderImpex, impexName);
     }
 
-    public void createAndWriteCategories() {
+    public void createCategories(){
+        initCategoryNameToCodeBinding();
+        customizeCategoriesCodes();
+    }
+
+    public void writeCategories() {
         String headerValues = "$productCatalog=globalProductCatalog\n$catalogVersion=catalogversion(catalog(id[default=$productCatalog]),version[default='Staged'])[unique=true,default=$productCatalog:Staged]\n$lang=en\n$allowedPrincipals=allowedPrincipals(uid)[default='customergroup']\n\n";
 
         String header = "INSERT_UPDATE Category;code[unique=true];name[lang=$lang];description[lang=$lang];$catalogVersion;$allowedPrincipals;\n";
         String categoryTemplate = ";{code};{name};{description}\n";
-
-        initCategoryNameToCodeBinding();
-        customizeCategoriesCodes();
 
         String categoryBody = "";
         for (String category : categoryNameToCode.keySet()) {
@@ -59,8 +68,7 @@ public class Parser {
         ParserUtils.writeToFile(categoryImpex, impexName);
     }
 
-    public void createAndWriteProductSupportedCountries() {
-        //Can be changed to handle single product. For now it handles SupportedCountries for all Products
+    public void writeProductSupportedCountries() {
         String header = "INSERT_UPDATE SapProductSupportedCountry;catalogVersion(catalog(id),version)[allownull=true];location(Country.isocode|SapArea.isocode)[unique=true];paymentConfigurations(code);product(catalogVersion(catalog(id),version),code)[unique=true];salesOrganization(uid)\n";
         String supCountriesBody = "";
 
@@ -83,14 +91,66 @@ public class Parser {
         ParserUtils.writeToFile(supportedCountriesImpex, impexName);
     }
 
-    public void createAndWriteProductReferences(SapProduct product) {
+    public void writeClassificationsForReferenceProducts() {
+        String variables = "$productCatalog=globalProductCatalog\n" +
+                "$catalogVersion=catalogversion(catalog(id[default=$productCatalog]),version[default='Staged'])[unique=true,default=$productCatalog:Staged]\n\n";
+
+        String headerClModifiers = "$clAttrModifiers=system='GlobalClassification',version='1.0',translator=de.hybris.platform.catalog.jalo.classification.impex.ClassificationAttributeTranslator,lang=en\n";
+        String headerClModifier1 = "$feature1=@purchasableOnline[$clAttrModifiers];\n";
+        String headerClModifier2 = "$feature2=@freeTrialOptionAvailable[$clAttrModifiers];\n";
+        String headerClModifier3 = "$feature3=@ecosystemProductType[$clAttrModifiers];\n\n";
+
+        String header = "INSERT_UPDATE Product;code[unique=true];$feature1;$feature2;$feature3;$catalogVersion\n";
+
+        String classificationsBody = "";
+
+        for (Integer refProductKey : referenceProducts.keySet()) {
+            ReferenceProduct refProduct = referenceProducts.get(refProductKey);
+            String row = SEMICOLON + "APPS-" + refProduct.getId()
+                    + SEMICOLON + refProduct.getClassificationAttributes().getBuyable()
+                    + SEMICOLON + refProduct.getClassificationAttributes().getFreeTrial()
+                    + SEMICOLON + refProduct.getClassificationAttributes().getType() + SEMICOLON + "\n";
+            classificationsBody += row;
+        }
+
+        String classificationsImpex = variables + headerClModifiers + headerClModifier1 + headerClModifier2 + headerClModifier3 + header + classificationsBody;
+        String impexName = "APIsProductClassification";
+        ParserUtils.writeToFile(classificationsImpex, impexName);
+    }
+
+    public void writeSapAllProducts(){
+        for (SapProduct sapProduct : sapProducts){
+            writeSapProduct(sapProduct);
+        }
+    }
+
+    public void writeSapProduct(SapProduct sapProduct){
+        String variables = "$productCatalog=globalProductCatalog\n" +
+                "$catalogVersion=catalogversion(catalog(id[default=$productCatalog]),version[default='Staged'])[unique=true,default=$productCatalog:Staged]\n" +
+                "$vendors=vendors(code)[default=sap]\n";
+        String productHeader = "INSERT_UPDATE Product; code[unique=true]; $catalogVersion; name[lang=en]; description[lang=en]; unit(code); approvalStatus(code); startLineNumber; primaryAction(code, itemtype(code))[allownull = true]; primaryActionLink; $vendors; mainCategory(catalogVersion(catalog(id),version),code);\n";
+        String sapProductTemplate = "; SAP-{id}; ; {name}; {name}; pieces; approved; 0; Buy:PrimaryActionEnum; {link}; sap; globalProductCatalog:Staged:analytics\n";
+
+        String sapProductRow = sapProductTemplate.replaceFirst("\\{id\\}", sapProduct.getId())
+                                                .replaceAll("\\{name\\}", sapProduct.getName())
+                                                .replaceFirst("\\{link\\}", sapProduct.getLink());
+
+        String productReferences = addProductReferences(sapProduct);
+
+        String sapProductImpex = variables + productHeader + sapProductRow + "\n" + productReferences;
+        String impexName = sapProduct.getName() + "-" + sapProduct.getId();
+        impexName = "sapProducts/" + ParserUtils.trimString(impexName);
+        ParserUtils.writeToFile(sapProductImpex, impexName);
+    }
+
+    private String addProductReferences(SapProduct product) {
         String header = "INSERT_UPDATE ProductReference;source(code,$catalogVersion)[unique=true];target(code,$catalogVersion)[unique=true];referenceType(code)[default=CROSSELLING,unique=true];active;preselected;\n";
         String productRefsBody = "";
 
-        String firstRow = SEMICOLON + "SAP-" + product.getId()
+        String sapProductToSapProductRef = SEMICOLON + "SAP-" + product.getId()
                 + SEMICOLON + "SAP-" + product.getId()
                 + SEMICOLON + REFERENCE_TYPE + SEMICOLON + "true" + SEMICOLON + "false" + SEMICOLON + "\n";
-        productRefsBody += firstRow;
+        productRefsBody += sapProductToSapProductRef;
 
         for (Integer refProductKey : product.getReferenceProducts()) {
             ReferenceProduct refProduct = referenceProducts.get(refProductKey);
@@ -100,71 +160,50 @@ public class Parser {
             productRefsBody += row;
         }
 
-        String productReferencesImpex = header + productRefsBody;
-        String impexName = "refs_for_single_product";
-        ParserUtils.writeToFile(productReferencesImpex, impexName);
+        return header + productRefsBody;
     }
 
-    public void createClassificationForProduct(SapProduct product) {
-        String headerClModifiers = "$clAttrModifiers=system='GlobalClassification',version='1.0',translator=de.hybris.platform.catalog.jalo.classification.impex.ClassificationAttributeTranslator,lang=en\n";
-        String headerClModifier1 = "$feature1=@purchasableOnline[$clAttrModifiers];\n";
-        String headerClModifier2 = "$feature2=@freeTrialOptionAvailable[$clAttrModifiers];\n";
-        String headerClModifier3 = "$feature3=@ecosystemProductType[$clAttrModifiers];\n";
-
-        String header = "INSERT_UPDATE Product;code[unique=true];$feature1;$feature2;$feature3;$catalogVersion\n";
-
-        String classificationsBody = "";
-
-        for (Integer refProductKey : product.getReferenceProducts()) {
-            ReferenceProduct refProduct = referenceProducts.get(refProductKey);
-            String row = SEMICOLON + "APPS-" + refProduct.getId()
-                    + SEMICOLON + refProduct.getClassificationAttributes().getBuyable()
-                    + SEMICOLON + refProduct.getClassificationAttributes().getFreeTrial()
-                    + SEMICOLON + refProduct.getClassificationAttributes().getType() + SEMICOLON + "\n";
-            classificationsBody += row;
-        }
-
-        String classificationsImpex = headerClModifiers + headerClModifier1 + headerClModifier2 + headerClModifier3 + header + classificationsBody;
-        String impexName = "classification_single_product";
-        ParserUtils.writeToFile(classificationsImpex, impexName);
-    }
-
-    public void createSapProductImpexes(SapProduct sapProduct){
-        String variables = "$productCatalog=globalProductCatalog\n" +
+    public void writeReferenceProducts(){
+        StringBuilder builder = new StringBuilder();
+        builder.append("$productCatalog=globalProductCatalog\n" +
                 "$catalogVersion=catalogversion(catalog(id[default=$productCatalog]),version[default='Staged'])[unique=true,default=$productCatalog:Staged]\n" +
-                "$vendors=vendors(code)[default=sap]\n";
-        String productHeader = "INSERT_UPDATE Product; code[unique=true]; $catalogVersion; name[lang=en]; description[lang=en]; unit(code); approvalStatus(code); startLineNumber; primaryAction(code, itemtype(code))[allownull = true]; primaryActionLink; $vendors; mainCategory(catalogVersion(catalog(id),version),code);\n";
-        String sapProductTemplate = "; SAP-{id}; ; {name}; {name}; pieces; approved; 0; Buy:PrimaryActionEnum; {link}; sap; globalProductCatalog:Staged:analytics\n";
-        String refProductTemplate = "; APPS-{id}; ; {productName}; {caption}; pieces; approved; 0; Buy:PrimaryActionEnum; {url}; {vendor}; globalProductCatalog:Staged:{#category}\n";
+                "$vendors=vendors(code)[default=sap]\n\n");
+        builder.append("INSERT_UPDATE Product; code[unique=true]; $catalogVersion; name[lang=en]; description[lang=en]; unit(code); approvalStatus(code); startLineNumber; primaryAction(code, itemtype(code))[allownull = true]; primaryActionLink; $vendors; mainCategory(catalogVersion(catalog(id),version),code);\n");
 
-        String sapProductRow = sapProductTemplate.replaceFirst("\\{id\\}", sapProduct.getId())
-                                                .replaceAll("\\{name\\}", sapProduct.getName())
-                                                .replaceFirst("\\{link\\}", sapProduct.getLink());
-        String refProductRows = "";
-        for (Integer refProductKey : sapProduct.getReferenceProducts()){
+        String refProductTemplate = "; APPS-{id}; ; {productName}; {caption}; pieces; approved; 0; Buy:PrimaryActionEnum; {url}; {vendor}; globalProductCatalog:Staged:{category}\n";
+
+        for (Integer refProductKey : referenceProducts.keySet()){
             ReferenceProduct refProduct = referenceProducts.get(refProductKey);
             String refProductRow = refProductTemplate.replaceFirst("\\{id\\}", refProduct.getId())
-                                                    .replaceFirst("\\{productName\\}", refProduct.getProductName())
-                                                    .replaceFirst("\\{caption\\}", refProduct.getCaption())
-                                                    .replaceFirst("\\{url\\}", refProduct.getUrl())
-                                                    .replaceFirst("\\{vendor\\}", vendorNameToCode.get(refProduct.getDeveloper()));
-            refProductRows += refProductRow;
+                    .replaceFirst("\\{productName\\}", refProduct.getProductName())
+                    .replaceFirst("\\{caption\\}", refProduct.getCaption())
+                    .replaceFirst("\\{url\\}", refProduct.getUrl())
+                    .replaceFirst("\\{vendor\\}", vendorNameToCode.get(refProduct.getDeveloper()));
+            if (StringUtils.isEmpty(refProduct.getCategory())){
+                refProductRow = refProductRow.replaceFirst("; globalProductCatalog:Staged:\\{category\\}", "");
+            } else {
+                refProductRow = refProductRow.replaceFirst("\\{category\\}", categoryNameToCode.get(refProduct.getCategory()));
+            }
+
+            builder.append(refProductRow);
         }
 
-        String sapProductImpex = variables + productHeader + sapProductRow + refProductRows;
-        String impexName = sapProduct.getName() + "-" + sapProduct.getId();
-        impexName = ParserUtils.trimString(impexName);
-        ParserUtils.writeToFile(sapProductImpex, impexName);
+        String impexName = "APIsProducts";
+        ParserUtils.writeToFile(builder.toString(), impexName);
     }
 
-    public void createCategoryProductRelation(SapProduct sapProduct) {
+    public void writeCategoryProductRelation() {
+        String variables = "$productCatalog=globalProductCatalog\n" +
+                "$catalogVersion=catalogversion(catalog(id[default=$productCatalog]),version[default='Staged'])[unique=true,default=$productCatalog:Staged]\n\n";
+
         String header1 = "$categories=source(code, $catalogVersion)[unique=true]\n";
-        String header2 = "$products=target(code, $catalogVersion)[unique=true]\n";
+        String header2 = "$products=target(code, $catalogVersion)[unique=true]\n\n";
 
         String header = "INSERT_UPDATE CategoryProductRelation;$categories;$products\n";
         String categoryRelationBody = "";
+
         //Note: don't know where to get category for SAPProduct(is it needed?)
-        for (Integer refProductKey : sapProduct.getReferenceProducts()) {
+        for (Integer refProductKey : referenceProducts.keySet()) {
             ReferenceProduct refProduct = referenceProducts.get(refProductKey);
             if (StringUtils.isNotEmpty(refProduct.getCategory())) {
                 String row = SEMICOLON + categoryNameToCode.get(refProduct.getCategory()) + SEMICOLON + "APPS-" + refProduct.getId() + SEMICOLON + "\n";
@@ -172,13 +211,17 @@ public class Parser {
             }
         }
 
-        String categoryRelationImpex = header1 + header2 + header + categoryRelationBody;
-        String impexName = "category_product_relation_single";
+        String categoryRelationImpex = variables + header1 + header2 + header + categoryRelationBody;
+        String impexName = "CategoryProductRelation";
         ParserUtils.writeToFile(categoryRelationImpex, impexName);
     }
 
-    public void createMediasForProduct(SapProduct product) {
+    public void writeReferenceProductsMedia() {
         StringBuilder builder = new StringBuilder();
+        builder.append("$productCatalog=globalProductCatalog\n" +
+                "$catalogVersion=catalogversion(catalog(id[default=$productCatalog]),version[default='Staged'])[unique=true,default=$productCatalog:Staged]\n");
+        builder.append(System.lineSeparator());
+
         builder.append("$siteResource=jar:com.sap.marketplace.initialdata.setup.InitialDataSystemSetup&/marketplaceinitialdata/import/project/$productCatalog\n");
         builder.append("$medias=medias(code, $catalogVersion)\n");
         builder.append("$thumbnail=thumbnail(code, $catalogVersion)\n");
@@ -188,6 +231,7 @@ public class Parser {
         builder.append("$normal=normal(code, $catalogVersion)\n");
         builder.append("$others=others(code, $catalogVersion)\n");
         builder.append("$galleryImages=galleryImages(qualifier, $catalogVersion)\n");
+        builder.append(System.lineSeparator());
 
         builder.append("INSERT_UPDATE MediaFormat;qualifier[unique=true];name\n");
         builder.append(";450Wx450H\n");
@@ -196,7 +240,7 @@ public class Parser {
         builder.append("INSERT_UPDATE Media; mediaFormat(qualifier); code[unique=true]; @media[translator=de.hybris.platform.impex.jalo.media.MediaDataTranslator]; mime[default='image/jpeg']; $catalogVersion; folder(qualifier)\n");
 
         //Note: don't know where to get picture for SAP product
-        for (Integer refProductKey : product.getReferenceProducts()) {
+        for (Integer refProductKey : referenceProducts.keySet()) {
             ReferenceProduct refProduct = referenceProducts.get(refProductKey);
             builder.append(SEMICOLON);
             builder.append("450Wx450H");
@@ -213,9 +257,10 @@ public class Parser {
             builder.append(System.lineSeparator());
         }
 
+        //Do we really need this media continers?
         builder.append(System.lineSeparator());
         builder.append("INSERT_UPDATE MediaContainer; qualifier[unique=true]; $medias; $catalogVersion\n");
-        for (Integer refProductKey : product.getReferenceProducts()) {
+        for (Integer refProductKey : referenceProducts.keySet()) {
             ReferenceProduct refProduct = referenceProducts.get(refProductKey);
             builder.append(SEMICOLON);
             builder.append("APPS-" + refProduct.getId());
@@ -225,8 +270,9 @@ public class Parser {
             builder.append(System.lineSeparator());
         }
 
+        builder.append(System.lineSeparator());
         builder.append("UPDATE Product;code[unique=true];$picture;$thumbnail;$detail;$others;$normal;$thumbnails;$catalogVersion\n");
-        for (Integer refProductKey : product.getReferenceProducts()) {
+        for (Integer refProductKey : referenceProducts.keySet()) {
             ReferenceProduct refProduct = referenceProducts.get(refProductKey);
             builder.append(SEMICOLON);
             builder.append("APPS-" + refProduct.getId());
@@ -239,11 +285,9 @@ public class Parser {
         }
 
         String impexMedias = builder.toString();
-        String impexName = "single_product_medias";
+        String impexName = "APIsProductsMedia";
         ParserUtils.writeToFile(impexMedias, impexName);
     }
-
-    public void createVendorsImpex(){}
 
     public void readReferenceProducts(Sheet referenceProductSheet){
         Iterator<Row> rowIterator = referenceProductSheet.rowIterator();
@@ -312,8 +356,10 @@ public class Parser {
 
     private void initCategoryNameToCodeBinding() {
         for (ReferenceProduct product: referenceProducts.values()){
-            String categoryWithUpperLetters = ParserUtils.firstLetterToUpper(product.getCategory());
-            categoryNameToCode.put(product.getCategory(), ParserUtils.firstLetterLowerCase(ParserUtils.trimString(categoryWithUpperLetters)));
+            if (StringUtils.isNotEmpty(product.getCategory())) {
+                String categoryWithUpperLetters = ParserUtils.firstLetterToUpper(product.getCategory());
+                categoryNameToCode.put(product.getCategory(), ParserUtils.firstLetterLowerCase(ParserUtils.trimString(categoryWithUpperLetters)));
+            }
         }
     }
 

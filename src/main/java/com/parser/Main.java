@@ -20,19 +20,20 @@ public class Main {
         Parser parser = new Parser();
         parser.readReferenceProducts(referenceProductSheet);
         parser.readSapProducts(sapProductSheet);
+        parser.prepareData();
 
-        parser.createAndWriteCategories();
-        parser.createAndWriteProductSupportedCountries();
-        //Methods with single product passed as a parameter, can be edited to append data to
-        //main impex. For ex (SAPAnalyticsCloud-8004107.impex)
-        parser.createAndWriteProductReferences(parser.sapProducts.get(0));
-        parser.createClassificationForProduct(parser.sapProducts.get(0));
-        parser.createCategoryProductRelation(parser.sapProducts.get(0));
-        parser.createMediasForProduct(parser.sapProducts.get(0));
+        parser.writeVendors();
+        parser.writeCategories();
+        parser.writeReferenceProducts();
+        parser.writeReferenceProductsMedia();
+        parser.writeClassificationsForReferenceProducts();
+        parser.writeCategoryProductRelation();
 
-        parser.createAndWriteVendors();
-        parser.createSapProductImpexes(parser.sapProducts.get(0));
+        parser.writeSapAllProducts();
 
-        System.out.println("Hello Artem");
+        parser.writeProductSupportedCountries();
+
+
+        System.out.println("Program finished");
     }
 }

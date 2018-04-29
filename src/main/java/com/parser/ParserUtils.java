@@ -9,7 +9,9 @@ import java.util.stream.Collectors;
 public class ParserUtils {
 
     static String trimString(String something) {
-        return something.replaceAll("\\s+","");
+        return something.replaceAll("\\s+","")
+                .replaceAll("\\,", "")
+                .replaceAll("\\/", "");
     }
 
     private static String lcFirst(String input) {
