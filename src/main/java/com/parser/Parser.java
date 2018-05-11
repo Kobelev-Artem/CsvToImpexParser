@@ -129,15 +129,15 @@ public class Parser {
                 "$catalogVersion=catalogversion(catalog(id[default=$productCatalog]),version[default='Staged'])[unique=true,default=$productCatalog:Staged]\n" +
                 "$vendors=vendors(code)[default=sap]\n";
         String productHeader = "INSERT_UPDATE Product; code[unique=true]; $catalogVersion; name[lang=en]; description[lang=en]; unit(code); approvalStatus(code); startLineNumber; primaryAction(code, itemtype(code))[allownull = true]; primaryActionLink; $vendors; mainCategory(catalogVersion(catalog(id),version),code);\n";
-        String sapProductTemplate = "; SAP-{id}; ; {name}; {name}; pieces; approved; 0; Buy:PrimaryActionEnum; {link}; sap; globalProductCatalog:Staged:analytics\n";
+        /*String sapProductTemplate = "; SAP-{id}; ; {name}; {name}; pieces; approved; 0; Buy:PrimaryActionEnum; {link}; sap; globalProductCatalog:Staged:analytics\n";
 
         String sapProductRow = sapProductTemplate.replaceFirst("\\{id\\}", sapProduct.getId())
                                                 .replaceAll("\\{name\\}", sapProduct.getName())
-                                                .replaceFirst("\\{link\\}", sapProduct.getLink());
+                                                .replaceFirst("\\{link\\}", sapProduct.getLink());*/
 
         String productReferences = addProductReferences(sapProduct);
 
-        String sapProductImpex = variables + productHeader + sapProductRow + "\n" + productReferences;
+        String sapProductImpex = variables + productHeader + "\n" + productReferences;
         String impexName = sapProduct.getName() + "-" + sapProduct.getId();
         impexName = "sapProducts/" + ParserUtils.trimString(impexName);
         ParserUtils.writeToFile(sapProductImpex, impexName);
@@ -214,6 +214,18 @@ public class Parser {
         String categoryRelationImpex = variables + header1 + header2 + header + categoryRelationBody;
         String impexName = "CategoryProductRelation";
         ParserUtils.writeToFile(categoryRelationImpex, impexName);
+    }
+
+    public void writeProductsToClassificationClass() {
+        StringBuilder impex = new StringBuilder("$productCatalog=globalProductCatalog\n");
+        impex.append("$catalogVersion=catalogversion(catalog(id[default=$productCatalog]),version[default='Staged'])[unique=true,default=$productCatalog:Staged]\n");
+        impex.append(";globalclassification;\n");
+        for (ReferenceProduct product : referenceProducts.values()){
+            impex.append("," + product.getId());
+        }
+
+        String impexName = "addProductsToClassificationClass";
+        ParserUtils.writeToFile(impex.toString(), impexName);
     }
 
     public void writeReferenceProductsMedia() {

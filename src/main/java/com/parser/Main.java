@@ -33,6 +33,7 @@ public class Main {
 
         parser.writeProductSupportedCountries();
 
+        parser.writeProductsToClassificationClass();
 
         System.out.println("Program finished");
     }
