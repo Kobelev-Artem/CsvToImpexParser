@@ -269,19 +269,6 @@ public class Parser {
             builder.append(System.lineSeparator());
         }
 
-        //Do we really need this media continers?
-        builder.append(System.lineSeparator());
-        builder.append("INSERT_UPDATE MediaContainer; qualifier[unique=true]; $medias; $catalogVersion\n");
-        for (Integer refProductKey : referenceProducts.keySet()) {
-            ReferenceProduct refProduct = referenceProducts.get(refProductKey);
-            builder.append(SEMICOLON);
-            builder.append("APPS-" + refProduct.getId());
-            builder.append(SEMICOLON);
-            builder.append("/450Wx450H/" + refProduct.getImage());
-            builder.append(SEMICOLON);
-            builder.append(System.lineSeparator());
-        }
-
         builder.append(System.lineSeparator());
         builder.append("UPDATE Product;code[unique=true];$picture;$thumbnail;$detail;$others;$normal;$thumbnails;$catalogVersion\n");
         for (Integer refProductKey : referenceProducts.keySet()) {
