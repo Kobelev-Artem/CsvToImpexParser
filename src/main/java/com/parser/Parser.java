@@ -305,7 +305,7 @@ public class Parser {
             }
 
             ReferenceProduct referenceProduct = new ReferenceProduct();
-            referenceProduct.setKey(Double.valueOf(firstCell.toString()).intValue());
+            referenceProduct.setKey(Integer.valueOf(firstCell.toString()));
             referenceProduct.setStore(cellIterator.next().toString());
             referenceProduct.setId(cellIterator.next().toString());
             referenceProduct.setProductName(cellIterator.next().toString());
@@ -345,7 +345,7 @@ public class Parser {
                 if (StringUtils.isEmpty(refProductCell.toString())){
                     break;
                 }
-                Integer referenceKey = Double.valueOf(refProductCell.toString()).intValue();
+                Integer referenceKey = Integer.valueOf(refProductCell.toString());
                 sapProduct.getReferenceProducts().add(referenceKey);
             }
 
