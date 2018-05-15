@@ -129,15 +129,15 @@ public class Parser {
                 "$catalogVersion=catalogversion(catalog(id[default=$productCatalog]),version[default='Staged'])[unique=true,default=$productCatalog:Staged]\n" +
                 "$vendors=vendors(code)[default=sap]\n";
         String productHeader = "INSERT_UPDATE Product; code[unique=true]; $catalogVersion; name[lang=en]; description[lang=en]; unit(code); approvalStatus(code); startLineNumber; primaryAction(code, itemtype(code))[allownull = true]; primaryActionLink; $vendors; mainCategory(catalogVersion(catalog(id),version),code);\n";
-        /*String sapProductTemplate = "; SAP-{id}; ; {name}; {name}; pieces; approved; 0; Buy:PrimaryActionEnum; {link}; sap; globalProductCatalog:Staged:analytics\n";
+        String sapProductTemplate = "; SAP-{id}; ; {name}; {name}; pieces; approved; 0; Buy:PrimaryActionEnum; {link}; sap; globalProductCatalog:Staged:analytics\n";
 
         String sapProductRow = sapProductTemplate.replaceFirst("\\{id\\}", sapProduct.getId())
                                                 .replaceAll("\\{name\\}", sapProduct.getName())
-                                                .replaceFirst("\\{link\\}", sapProduct.getLink());*/
+                                                .replaceFirst("\\{link\\}", sapProduct.getLink());
 
         String productReferences = addProductReferences(sapProduct);
 
-        String sapProductImpex = variables + productHeader + "\n" + productReferences;
+        String sapProductImpex = variables + productHeader + sapProductRow + "\n" + productReferences;
         String impexName = sapProduct.getName() + "-" + sapProduct.getId();
         impexName = "sapProducts/" + ParserUtils.trimString(impexName);
         ParserUtils.writeToFile(sapProductImpex, impexName);
@@ -147,10 +147,10 @@ public class Parser {
         String header = "INSERT_UPDATE ProductReference;source(code,$catalogVersion)[unique=true];target(code,$catalogVersion)[unique=true];referenceType(code)[default=CROSSELLING,unique=true];active;preselected;\n";
         String productRefsBody = "";
 
-        String sapProductToSapProductRef = SEMICOLON + "SAP-" + product.getId()
+        /*String sapProductToSapProductRef = SEMICOLON + "SAP-" + product.getId()
                 + SEMICOLON + "SAP-" + product.getId()
                 + SEMICOLON + REFERENCE_TYPE + SEMICOLON + "true" + SEMICOLON + "false" + SEMICOLON + "\n";
-        productRefsBody += sapProductToSapProductRef;
+        productRefsBody += sapProductToSapProductRef;*/
 
         for (Integer refProductKey : product.getReferenceProducts()) {
             ReferenceProduct refProduct = referenceProducts.get(refProductKey);
@@ -305,7 +305,7 @@ public class Parser {
             }
 
             ReferenceProduct referenceProduct = new ReferenceProduct();
-            referenceProduct.setKey(Integer.valueOf(firstCell.toString()));
+            referenceProduct.setKey(Double.valueOf(firstCell.toString()).intValue());
             referenceProduct.setStore(cellIterator.next().toString());
             referenceProduct.setId(cellIterator.next().toString());
             referenceProduct.setProductName(cellIterator.next().toString());
@@ -345,7 +345,7 @@ public class Parser {
                 if (StringUtils.isEmpty(refProductCell.toString())){
                     break;
                 }
-                Integer referenceKey = Integer.valueOf(refProductCell.toString());
+                Integer referenceKey = Double.valueOf(refProductCell.toString()).intValue();
                 sapProduct.getReferenceProducts().add(referenceKey);
             }
 
