@@ -11,6 +11,7 @@ public class Parser {
     private static final String SEMICOLON = ";";
     private static final String SALES_ORG = "0000000332";
     private static final String REFERENCE_TYPE = "CROSSELLING";
+    private static final String ANY_LETTER_REGEX = ".*[a-zA-Z]+.*";
 
     public List<SapProduct> sapProducts = new ArrayList<>();
     public Map<Integer, ReferenceProduct> referenceProducts = new HashMap<>();
@@ -219,9 +220,10 @@ public class Parser {
     public void writeProductsToClassificationClass() {
         StringBuilder impex = new StringBuilder("$productCatalog=globalProductCatalog\n");
         impex.append("$catalogVersion=catalogversion(catalog(id[default=$productCatalog]),version[default='Staged'])[unique=true,default=$productCatalog:Staged]\n");
+        impex.append("UPDATE ClassificationClass; code[unique=true]; products(code, $catalogVersion)");
         impex.append(";globalclassification;\n");
         for (ReferenceProduct product : referenceProducts.values()){
-            impex.append("," + product.getId());
+            impex.append("APPS-" + product.getId() + ",");
         }
 
         String impexName = "addProductsToClassificationClass";
@@ -322,6 +324,17 @@ public class Parser {
             referenceProduct.setUrl(cellIterator.next().toString());
 
             referenceProducts.put(referenceProduct.getKey(), referenceProduct);
+        }
+
+        fixIDsForReferenceProducts();
+    }
+
+    private void fixIDsForReferenceProducts(){
+        for (Integer key : referenceProducts.keySet()){
+            ReferenceProduct product = referenceProducts.get(key);
+            if (StringUtils.isEmpty(product.getId()) || product.getId().matches(ANY_LETTER_REGEX)){
+                product.setId(key.toString());
+            }
         }
     }
 
