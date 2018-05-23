@@ -99,9 +99,10 @@ public class Parser {
         String headerClModifiers = "$clAttrModifiers=system='GlobalClassification',version='1.0',translator=de.hybris.platform.catalog.jalo.classification.impex.ClassificationAttributeTranslator,lang=en\n";
         String headerClModifier1 = "$feature1=@purchasableOnline[$clAttrModifiers];\n";
         String headerClModifier2 = "$feature2=@freeTrialOptionAvailable[$clAttrModifiers];\n";
-        String headerClModifier3 = "$feature3=@ecosystemProductType[$clAttrModifiers];\n\n";
+        String headerClModifier3 = "$feature3=@ecosystemProductType[$clAttrModifiers];\n";
+        String headerClModifier4 = "$feature4=@featured[$clAttrModifiers];\n\n";
 
-        String header = "INSERT_UPDATE Product;code[unique=true];$feature1;$feature2;$feature3;$catalogVersion\n";
+        String header = "INSERT_UPDATE Product;code[unique=true];$feature1;$feature2;$feature3;$feature4;$catalogVersion\n";
 
         String classificationsBody = "";
 
@@ -110,11 +111,12 @@ public class Parser {
             String row = SEMICOLON + "APPS-" + refProduct.getId()
                     + SEMICOLON + refProduct.getClassificationAttributes().getBuyable()
                     + SEMICOLON + refProduct.getClassificationAttributes().getFreeTrial()
-                    + SEMICOLON + refProduct.getClassificationAttributes().getType() + SEMICOLON + "\n";
+                    + SEMICOLON + refProduct.getClassificationAttributes().getType()
+                    + SEMICOLON + refProduct.getFeatured() + SEMICOLON + "\n";
             classificationsBody += row;
         }
 
-        String classificationsImpex = variables + headerClModifiers + headerClModifier1 + headerClModifier2 + headerClModifier3 + header + classificationsBody;
+        String classificationsImpex = variables + headerClModifiers + headerClModifier1 + headerClModifier2 + headerClModifier3 + headerClModifier4 + header + classificationsBody;
         String impexName = "APIsProductClassification";
         ParserUtils.writeToFile(classificationsImpex, impexName);
     }
