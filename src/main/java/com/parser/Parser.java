@@ -220,8 +220,8 @@ public class Parser {
     public void writeProductsToClassificationClass() {
         StringBuilder impex = new StringBuilder("$productCatalog=globalProductCatalog\n");
         impex.append("$catalogVersion=catalogversion(catalog(id[default=$productCatalog]),version[default='Staged'])[unique=true,default=$productCatalog:Staged]\n");
-        impex.append("UPDATE ClassificationClass; code[unique=true]; products(code, $catalogVersion)");
-        impex.append(";globalclassification;\n");
+        impex.append("UPDATE ClassificationClass; code[unique=true]; products(code, $catalogVersion)\n");
+        impex.append(";globalclassification;");
         for (ReferenceProduct product : referenceProducts.values()){
             impex.append("APPS-" + product.getId() + ",");
         }
